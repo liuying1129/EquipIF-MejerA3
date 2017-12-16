@@ -1,0 +1,34 @@
+NZ[
+0001 
+*WBC  2+ 125Cells/uL
+ NIT  -             
+ URO      Normal 
+ PRO  -   0      g/L
+ pH       6.0       
+*BLD  1+ 25 Cells/uL
+ SG      <1.005
+ BIL  -   0   umol/L
+ Vc       0   mmol/L
+ KET  -   0   mmol/L
+ GLU  -   0   mmol/L
+]
+CZ[
+20160318 090918 
+0021 BR 
+RBC 63 个/ul 0-5 
+WBC 0 个/ul 0-7 
+EC 5 个/ul 0-7 
+SRC 0 个/ul 0-3 
+C.CAST 0 个/ul 0-1 
+P.CAST 0 个/ul 0-1 
+CAST 0 个/ul 0-1 
+C.XTAL 14 个/ul 0-10 
+U.XTAL 0 个/ul 0-10 
+XTAL 0 个/ul 0-10 
+SPERM 0 个/ul 0-2 
+BACT 73 个/ul 0-100 
+YEAST 0 个/ul 0-6 
+MUCUS 0 个/ul 0-8 
+FATBALL 0 个/ul 0-3 
+TRICHMO 0 个/ul 0-1 
+]
