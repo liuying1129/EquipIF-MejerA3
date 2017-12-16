@@ -60,7 +60,7 @@ var
 
 implementation
 
-uses ucommfunction;
+uses ucommfunction, USearchFile;
 
 const
   CR=#$D+#$A;
@@ -217,7 +217,7 @@ begin
 
   autorun:=ini.readBool(IniSection,'开机自动运行',false);
 
-  GroupName:=trim(ini.ReadString(IniSection,'组别',''));
+  GroupName:=trim(ini.ReadString(IniSection,'工作组',''));
   EquipChar:=trim(uppercase(ini.ReadString(IniSection,'仪器字母','')));//读出来是大写就万无一失了
   SpecType:=ini.ReadString(IniSection,'默认样本类型','');
   SpecStatus:=ini.ReadString(IniSection,'默认样本状态','');
@@ -300,7 +300,7 @@ begin
   if LoadInputPassDll then
   begin
     ss:='连接仪器数据库'+#2+'DBConn'+#2+#2+'1'+#2+#2+#3+
-      '组别'+#2+'Edit'+#2+#2+'1'+#2+#2+#3+
+      '工作组'+#2+'Edit'+#2+#2+'1'+#2+#2+#3+
       '仪器字母'+#2+'Edit'+#2+#2+'1'+#2+#2+#3+
       '检验系统窗体标题'+#2+'Edit'+#2+#2+'1'+#2+#2+#3+
       '默认样本类型'+#2+'Edit'+#2+#2+'1'+#2+#2+#3+
@@ -326,6 +326,168 @@ begin
     if ifRegister then bRegister:=true else bRegister:=false;
 end;
 
+procedure AFindCallBack(const filename:string;const info:tsearchrec;var quit:boolean);
+var
+  ls,lsValue,sList:tstrings;
+  i:integer;
+
+  SpecNo:string;
+  FInts:OleVariant;
+  ReceiveItemInfo:OleVariant;
+
+  ini:Tinifile;
+
+  //图形路径
+  HPLT:string;
+  HRBC:string;
+  HWBC:string;
+  SBASO:string;
+  SDIFF:string;
+  SIMI:string;
+  SNRBC:string;
+  SPLT:string;
+  SRET:string;
+  SRET_E:string;
+
+  //HRBCY:string;
+  //HWDFY:string;
+  //SPLT_F:string;
+  //SPLT_O:string;
+  //SWDF:string;
+  //SWNR:string;
+  //SWPC:string;
+  //=========
+
+  s1:string;
+  i0:TDateTime;//上次检验时间
+  i1:TDateTime;//本次检验时间
+  sName:string;//文件名
+  fs:TFormatSettings;
+  s2:string;
+begin
+  {sName:=ExtractFileName(filename);
+  
+  sList:=TStringList.Create;
+  ExtractStrings(['_'],[],PChar(sName),sList);
+  if sList.Count<2 then begin sList.Free;exit;end;
+  s1:=sList[0]+'_'+sList[1];
+  sList.Free;
+    
+  ini:=TINIFILE.Create(ChangeFileExt(Application.ExeName,'.ini'));
+  i0:=ini.ReadDateTime(FormatDateTime('YYYYMMDD',now),s1,0);
+  ini.Free;
+
+  ls:=Tstringlist.Create;
+  ls.LoadFromFile(filename);
+  if ls.Count<=0 then begin ls.Free;exit;end;//如果仪器还没向cdf文件中写完，则等待写完
+
+  //本次检验时间
+  i1:=1;
+  for i :=0  to ls.Count-1 do
+  begin
+    lsValue:=StrToList(ls[i],big_result);//将每行导入到字符串列表中
+
+    if lsValue.Count<20 then begin lsValue.Free;continue;end;
+    s2:=StringReplace(lsValue[19],'/','-',[rfReplaceAll, rfIgnoreCase]);
+
+    if lsValue[0]<>'00' then begin lsValue.Free;continue;end;
+
+    fs.DateSeparator:='-';
+    fs.TimeSeparator:=':';
+    fs.ShortDateFormat:='YYYY-MM-DD hh:nn:ss';
+    i1:=StrtoDateTimeDef(s2,i1,fs);
+
+    lsValue.Free;
+  end;
+  //==========
+
+  if i1<=i0 then begin ls.Free;exit;end;//该文件已经处理过或已处理过以前做的
+  
+  ini:=TINIFILE.Create(ChangeFileExt(Application.ExeName,'.ini'));
+  ini.WriteDateTime(FormatDateTime('YYYYMMDD',now),s1,i1);
+  ini.Free;
+
+  if length(frmMain.memo1.Lines.Text)>=60000 then frmMain.memo1.Lines.Clear;//memo只能接受64K个字符
+  frmMain.memo1.Lines.Add(filename);
+
+  //取图形数据
+  for i :=0  to ls.Count-1 do
+  begin
+    lsValue:=StrToList(ls[i],big_result);//将每行导入到字符串列表中
+
+    if lsValue.Count<4 then continue;
+
+    if uppercase(lsValue[2])='HPLT' then HPLT:=lsValue[3];
+    if uppercase(lsValue[2])='HRBC' then HRBC:=lsValue[3];
+    if uppercase(lsValue[2])='HWBC' then HWBC:=lsValue[3];
+    if uppercase(lsValue[2])='SBASO' then SBASO:=lsValue[3];
+    if uppercase(lsValue[2])='SDIFF' then SDIFF:=lsValue[3];
+    if uppercase(lsValue[2])='SIMI' then SIMI:=lsValue[3];
+    if uppercase(lsValue[2])='SNRBC' then SNRBC:=lsValue[3];
+    if uppercase(lsValue[2])='SPLT' then SPLT:=lsValue[3];
+    if uppercase(lsValue[2])='SRET' then SRET:=lsValue[3];
+    if uppercase(lsValue[2])='SRET-E' then SRET_E:=lsValue[3];
+
+    //if uppercase(lsValue[2])='HRBCY' then HRBCY:=lsValue[3];
+    //if uppercase(lsValue[2])='HWDFY' then HWDFY:=lsValue[3];
+    //if uppercase(lsValue[2])='SPLT-F' then SPLT_F:=lsValue[3];
+    //if uppercase(lsValue[2])='SPLT-O' then SPLT_O:=lsValue[3];
+    //if uppercase(lsValue[2])='SWDF' then SWDF:=lsValue[3];
+    //if uppercase(lsValue[2])='SWNR' then SWNR:=lsValue[3];
+    //if uppercase(lsValue[2])='SWPC' then SWPC:=lsValue[3];
+
+    lsValue.Free;
+  end;
+  //============
+
+  ReceiveItemInfo:=VarArrayCreate([0,ls.Count-1],varVariant);
+
+  for i :=0  to ls.Count-1 do
+  begin
+    lsValue:=StrToList(ls[i],big_result);//将每行导入到字符串列表中
+
+    if lsValue.Count<4 then
+    begin
+      ReceiveItemInfo[i]:=VarArrayof(['','','','']);
+      continue;
+    end;
+
+    if lsValue[0]='0' then SpecNo:=rightstr('0000'+lsValue[3],4);
+
+    if lsValue[0]='1' then
+    begin
+      if uppercase(lsValue[1])='PLT' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',HPLT])
+      else if uppercase(lsValue[1])='RBC' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',HRBC])
+      else if uppercase(lsValue[1])='WBC' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',HWBC])
+      else if uppercase(lsValue[1])='BASO#' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SBASO])
+      else if uppercase(lsValue[1])='MPV' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SDIFF])
+      else if uppercase(lsValue[1])='MONO#' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SIMI])
+      else if uppercase(lsValue[1])='NRBC#' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SNRBC])
+      else if uppercase(lsValue[1])='HCT' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SPLT])
+      else if uppercase(lsValue[1])='RET#' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SRET])
+      else if uppercase(lsValue[1])='RET%' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SRET_E])
+      else ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'','']);
+    end
+    else if lsValue[0]='3' then ReceiveItemInfo[i]:=VarArrayof([lsValue[2],'','',lsValue[3]])
+    else ReceiveItemInfo[i]:=VarArrayof(['','','','']);
+
+    lsValue.Free;
+  end;
+  
+  ls.Free;
+
+  if bRegister then
+  begin
+    FInts :=CreateOleObject('Data2LisSvr.Data2Lis');
+    FInts.fData2Lis(ReceiveItemInfo,(SpecNo),'',
+      (GroupName),(SpecType),(SpecStatus),(EquipChar),
+      (CombinID),'',(LisFormCaption),(ConnectString),
+      (QuaContSpecNoG),(QuaContSpecNo),(QuaContSpecNoD),'',
+      ifRecLog,true,'常规');
+    if not VarIsEmpty(FInts) then FInts:= unAssigned;
+  end;//}
+end;
+
 procedure TfrmMain.BitBtn3Click(Sender: TObject);
 VAR
   adotemp22,adotemp,adotemp33:tadoquery;
@@ -334,6 +496,9 @@ VAR
   FInts:OleVariant;
   sName,sSex,sAge,sKB,sBQ,sBLH,sBedNo,sLCZD,sSJYS,sJYYS:String;
   i,RecNum:integer;
+
+  picturepath:string;
+  qqq:boolean;
 begin
   if not ifConnSucc then
   begin
@@ -347,17 +512,21 @@ begin
   adotemp22.Connection:=ADOConn_BS;
   adotemp22.Close;
   adotemp22.SQL.Clear;
-  adotemp22.SQL.Text:='select TestDataID,序号,姓名,性别,年龄,科别,病区,病历号,床号,临床诊断,日期,时间,送检医生,检验医生,'+
-                      '全血粘度,血浆粘度,压积,血沉,血沉最大沉降率,血沉最大沉降率时间,全血低切相对指数,全血高切相对指数,'+
-                      '血沉方程K值,红细胞聚集指数,红细胞聚集系数,红细胞变形指数,全血低切还原粘度,全血高切还原粘度,'+
-                      '红细胞变形指数TK,红细胞刚性指数,卡松粘度,血红蛋白,红细胞内粘度,低切流阻,中切流阻,高切流阻,纤维蛋白原,血胆固醇,'+
-                      '甘油三脂,高密脂蛋白,血糖,血小板粘附率,体外血栓干重,红细胞电泳,血小板聚集率,'+
-                      '体外血栓长度,结果分析,全血中切还原粘度,屈服应力,红细胞电泳指数,全血中切相对指数,红细胞计数 '+
-                      ' from TestData '+
-                      ' where format(日期,''YYYY-MM-DD'')='''+FormatDateTime('YYYY-MM-DD',DateTimePicker1.Date)+''' ';
+  adotemp22.SQL.Text:='select orderid,sampleid,patientid,acqutime,picturepath,'+
+                      'WBC,NIT,URO,PRO,pH,BLD,SG,BIL,Vc,KET,GLU,Color,Turbidity,MCa,Ca,CRE,redCell,whiteCell,whiteCellgroup,squa,'+
+                      'nonSqua,otherSqua,cylinder,hyalineCast,granularCast,crystal,urateCrystal,otherCrystal,speram,baterium,yeast,'+
+                      'mucus,fatBall,trichmo,resultchange,unredcell '+
+                      ' from UrineResult '+
+                      ' where acqudate='''+FormatDateTime('YYYYMMDD',DateTimePicker1.Date)+''' ';
   adotemp22.Open;
   while not adotemp22.Eof do
   begin
+    picturepath:=adotemp22.fieldbyname('picturepath').AsString;
+
+    qqq:=false;
+    findfile(qqq,picturepath,'*.jpg',AFindCallBack,true,true);
+
+    
     adotemp33:=tadoquery.Create(nil);
     adotemp33.Connection:=ADOConn_BS;
     adotemp33.Close;
