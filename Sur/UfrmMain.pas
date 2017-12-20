@@ -60,7 +60,7 @@ var
 
 implementation
 
-uses ucommfunction, USearchFile;
+uses ucommfunction;
 
 const
   CR=#$D+#$A;
@@ -83,10 +83,13 @@ var
   EquipChar:string;
   MrConnStr:string;
   ifConnSucc:boolean;
+  ifRecLog:boolean;//是否记录调试日志
 
   hnd:integer;
   bRegister:boolean;
 
+  orderid,sampleid,patientid,acqutime,picturepath:string;
+  
 {$R *.dfm}
 
 function ifRegister:boolean;
@@ -216,6 +219,7 @@ begin
   ini:=TINIFILE.Create(ChangeFileExt(Application.ExeName,'.ini'));
 
   autorun:=ini.readBool(IniSection,'开机自动运行',false);
+  ifRecLog:=ini.readBool(IniSection,'调试日志',false);
 
   GroupName:=trim(ini.ReadString(IniSection,'工作组',''));
   EquipChar:=trim(uppercase(ini.ReadString(IniSection,'仪器字母','')));//读出来是大写就万无一失了
@@ -307,6 +311,7 @@ begin
       '默认样本状态'+#2+'Edit'+#2+#2+'1'+#2+#2+#3+
       '组合项目代码'+#2+'Edit'+#2+#2+'1'+#2+#2+#3+
       '开机自动运行'+#2+'CheckListBox'+#2+#2+'1'+#2+#2+#3+
+      '调试日志'+#2+'CheckListBox'+#2+#2+'0'+#2+'注:强烈建议在正常运行时关闭'+#2+#3+
       '高值质控联机号'+#2+'Edit'+#2+#2+'2'+#2+#2+#3+
       '常值质控联机号'+#2+'Edit'+#2+#2+'2'+#2+#2+#3+
       '低值质控联机号'+#2+'Edit'+#2+#2+'2'+#2+#2+#3;
@@ -326,179 +331,40 @@ begin
     if ifRegister then bRegister:=true else bRegister:=false;
 end;
 
-procedure AFindCallBack(const filename:string;const info:tsearchrec;var quit:boolean);
+{procedure AFindCallBack(const filename:string;const info:tsearchrec;var quit:boolean);
 var
-  ls,lsValue,sList:tstrings;
-  i:integer;
-
-  SpecNo:string;
   FInts:OleVariant;
   ReceiveItemInfo:OleVariant;
 
-  ini:Tinifile;
-
-  //图形路径
-  HPLT:string;
-  HRBC:string;
-  HWBC:string;
-  SBASO:string;
-  SDIFF:string;
-  SIMI:string;
-  SNRBC:string;
-  SPLT:string;
-  SRET:string;
-  SRET_E:string;
-
-  //HRBCY:string;
-  //HWDFY:string;
-  //SPLT_F:string;
-  //SPLT_O:string;
-  //SWDF:string;
-  //SWNR:string;
-  //SWPC:string;
-  //=========
-
-  s1:string;
-  i0:TDateTime;//上次检验时间
-  i1:TDateTime;//本次检验时间
   sName:string;//文件名
-  fs:TFormatSettings;
-  s2:string;
 begin
-  {sName:=ExtractFileName(filename);
+  sName:=ChangeFileExt(ExtractFileName(filename),'');
   
-  sList:=TStringList.Create;
-  ExtractStrings(['_'],[],PChar(sName),sList);
-  if sList.Count<2 then begin sList.Free;exit;end;
-  s1:=sList[0]+'_'+sList[1];
-  sList.Free;
-    
-  ini:=TINIFILE.Create(ChangeFileExt(Application.ExeName,'.ini'));
-  i0:=ini.ReadDateTime(FormatDateTime('YYYYMMDD',now),s1,0);
-  ini.Free;
+  ReceiveItemInfo:=VarArrayCreate([0,1-1],varVariant);
 
-  ls:=Tstringlist.Create;
-  ls.LoadFromFile(filename);
-  if ls.Count<=0 then begin ls.Free;exit;end;//如果仪器还没向cdf文件中写完，则等待写完
-
-  //本次检验时间
-  i1:=1;
-  for i :=0  to ls.Count-1 do
-  begin
-    lsValue:=StrToList(ls[i],big_result);//将每行导入到字符串列表中
-
-    if lsValue.Count<20 then begin lsValue.Free;continue;end;
-    s2:=StringReplace(lsValue[19],'/','-',[rfReplaceAll, rfIgnoreCase]);
-
-    if lsValue[0]<>'00' then begin lsValue.Free;continue;end;
-
-    fs.DateSeparator:='-';
-    fs.TimeSeparator:=':';
-    fs.ShortDateFormat:='YYYY-MM-DD hh:nn:ss';
-    i1:=StrtoDateTimeDef(s2,i1,fs);
-
-    lsValue.Free;
-  end;
-  //==========
-
-  if i1<=i0 then begin ls.Free;exit;end;//该文件已经处理过或已处理过以前做的
-  
-  ini:=TINIFILE.Create(ChangeFileExt(Application.ExeName,'.ini'));
-  ini.WriteDateTime(FormatDateTime('YYYYMMDD',now),s1,i1);
-  ini.Free;
-
-  if length(frmMain.memo1.Lines.Text)>=60000 then frmMain.memo1.Lines.Clear;//memo只能接受64K个字符
-  frmMain.memo1.Lines.Add(filename);
-
-  //取图形数据
-  for i :=0  to ls.Count-1 do
-  begin
-    lsValue:=StrToList(ls[i],big_result);//将每行导入到字符串列表中
-
-    if lsValue.Count<4 then continue;
-
-    if uppercase(lsValue[2])='HPLT' then HPLT:=lsValue[3];
-    if uppercase(lsValue[2])='HRBC' then HRBC:=lsValue[3];
-    if uppercase(lsValue[2])='HWBC' then HWBC:=lsValue[3];
-    if uppercase(lsValue[2])='SBASO' then SBASO:=lsValue[3];
-    if uppercase(lsValue[2])='SDIFF' then SDIFF:=lsValue[3];
-    if uppercase(lsValue[2])='SIMI' then SIMI:=lsValue[3];
-    if uppercase(lsValue[2])='SNRBC' then SNRBC:=lsValue[3];
-    if uppercase(lsValue[2])='SPLT' then SPLT:=lsValue[3];
-    if uppercase(lsValue[2])='SRET' then SRET:=lsValue[3];
-    if uppercase(lsValue[2])='SRET-E' then SRET_E:=lsValue[3];
-
-    //if uppercase(lsValue[2])='HRBCY' then HRBCY:=lsValue[3];
-    //if uppercase(lsValue[2])='HWDFY' then HWDFY:=lsValue[3];
-    //if uppercase(lsValue[2])='SPLT-F' then SPLT_F:=lsValue[3];
-    //if uppercase(lsValue[2])='SPLT-O' then SPLT_O:=lsValue[3];
-    //if uppercase(lsValue[2])='SWDF' then SWDF:=lsValue[3];
-    //if uppercase(lsValue[2])='SWNR' then SWNR:=lsValue[3];
-    //if uppercase(lsValue[2])='SWPC' then SWPC:=lsValue[3];
-
-    lsValue.Free;
-  end;
-  //============
-
-  ReceiveItemInfo:=VarArrayCreate([0,ls.Count-1],varVariant);
-
-  for i :=0  to ls.Count-1 do
-  begin
-    lsValue:=StrToList(ls[i],big_result);//将每行导入到字符串列表中
-
-    if lsValue.Count<4 then
-    begin
-      ReceiveItemInfo[i]:=VarArrayof(['','','','']);
-      continue;
-    end;
-
-    if lsValue[0]='0' then SpecNo:=rightstr('0000'+lsValue[3],4);
-
-    if lsValue[0]='1' then
-    begin
-      if uppercase(lsValue[1])='PLT' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',HPLT])
-      else if uppercase(lsValue[1])='RBC' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',HRBC])
-      else if uppercase(lsValue[1])='WBC' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',HWBC])
-      else if uppercase(lsValue[1])='BASO#' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SBASO])
-      else if uppercase(lsValue[1])='MPV' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SDIFF])
-      else if uppercase(lsValue[1])='MONO#' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SIMI])
-      else if uppercase(lsValue[1])='NRBC#' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SNRBC])
-      else if uppercase(lsValue[1])='HCT' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SPLT])
-      else if uppercase(lsValue[1])='RET#' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SRET])
-      else if uppercase(lsValue[1])='RET%' then ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'',SRET_E])
-      else ReceiveItemInfo[i]:=VarArrayof([lsValue[1],lsValue[3],'','']);
-    end
-    else if lsValue[0]='3' then ReceiveItemInfo[i]:=VarArrayof([lsValue[2],'','',lsValue[3]])
-    else ReceiveItemInfo[i]:=VarArrayof(['','','','']);
-
-    lsValue.Free;
-  end;
-  
-  ls.Free;
+  ReceiveItemInfo[0]:=VarArrayof([sName,'','',filename]);
 
   if bRegister then
   begin
     FInts :=CreateOleObject('Data2LisSvr.Data2Lis');
-    FInts.fData2Lis(ReceiveItemInfo,(SpecNo),'',
+    FInts.fData2Lis(ReceiveItemInfo,rightstr('0000'+orderid,4),
+        FormatDateTime('YYYY-MM-DD',frmMain.DateTimePicker1.Date)+' '+copy(acqutime,1,2)+':'+copy(acqutime,3,2)+':'+copy(acqutime,5,2),
       (GroupName),(SpecType),(SpecStatus),(EquipChar),
       (CombinID),'',(LisFormCaption),(ConnectString),
       (QuaContSpecNoG),(QuaContSpecNo),(QuaContSpecNoD),'',
       ifRecLog,true,'常规');
     if not VarIsEmpty(FInts) then FInts:= unAssigned;
-  end;//}
-end;
+  end;
+end;//}
 
 procedure TfrmMain.BitBtn3Click(Sender: TObject);
 VAR
-  adotemp22,adotemp,adotemp33:tadoquery;
-  SamNo:string;
-  ReceiveItemInfo:OleVariant;
   FInts:OleVariant;
-  sName,sSex,sAge,sKB,sBQ,sBLH,sBedNo,sLCZD,sSJYS,sJYYS:String;
-  i,RecNum:integer;
-
-  picturepath:string;
-  qqq:boolean;
+  
+  adotemp22:tadoquery;
+  ReceiveItemInfo:OleVariant;
+  
+  //qqq:boolean;
 begin
   if not ifConnSucc then
   begin
@@ -521,105 +387,102 @@ begin
   adotemp22.Open;
   while not adotemp22.Eof do
   begin
+    orderid:=adotemp22.fieldbyname('orderid').AsString;
+    sampleid:=adotemp22.fieldbyname('sampleid').AsString;
+    patientid:=adotemp22.fieldbyname('patientid').AsString;
+    acqutime:=adotemp22.fieldbyname('acqutime').AsString;
     picturepath:=adotemp22.fieldbyname('picturepath').AsString;
-
-    qqq:=false;
-    findfile(qqq,picturepath,'*.jpg',AFindCallBack,true,true);
-
-    
-    adotemp33:=tadoquery.Create(nil);
-    adotemp33.Connection:=ADOConn_BS;
-    adotemp33.Close;
-    adotemp33.SQL.Clear;
-    adotemp33.SQL.Text:='select count(*) as RecNum from Visc where TestDataID='+adotemp22.fieldbyname('TestDataID').AsString;
-    adotemp33.Open;
-    RecNum:=adotemp33.fieldbyname('RecNum').AsInteger;
-    adotemp33.Free;
   
-    ReceiveItemInfo:=VarArrayCreate([0,38+RecNum-1],varVariant);
-    
-    adotemp:=tadoquery.Create(nil);
-    adotemp.Connection:=ADOConn_BS;
-    adotemp.Close;
-    adotemp.SQL.Clear;
-    adotemp.SQL.Text:='select ShearRate,Visc from Visc where TestDataID='+adotemp22.fieldbyname('TestDataID').AsString;
-    adotemp.Open;
-    i:=0;
-    while not adotemp.Eof do
-    begin
-      ReceiveItemInfo[i]:=VarArrayof([adotemp.fieldbyname('ShearRate').AsString,adotemp.fieldbyname('Visc').AsString,'','']);
-      inc(i);
-      adotemp.Next;
-    end;
-    adotemp.Free;
+    ReceiveItemInfo:=VarArrayCreate([0,36+19-1],varVariant);//19个图片项目
 
-    SamNo:=adotemp22.fieldbyname('序号').AsString;
-    sName:=adotemp22.fieldbyname('姓名').AsString;
-    sSex:=ifThen(uppercase(adotemp22.fieldbyname('性别').AsString)='TRUE','男','女');
-    sAge:=adotemp22.fieldbyname('年龄').AsString;
-    sKB:=adotemp22.fieldbyname('科别').AsString;
-    sBQ:=adotemp22.fieldbyname('病区').AsString;
-    sBLH:=adotemp22.fieldbyname('病历号').AsString;
-    sBedNo:=adotemp22.fieldbyname('床号').AsString;
-    sLCZD:=adotemp22.fieldbyname('临床诊断').AsString;
-    sSJYS:=adotemp22.fieldbyname('送检医生').AsString;
-    sJYYS:=adotemp22.fieldbyname('检验医生').AsString;
-      
-    ReceiveItemInfo[0+i]:=VarArrayof(['全血粘度',adotemp22.fieldbyname('全血粘度').AsString,'','']);
-    ReceiveItemInfo[1+i]:=VarArrayof(['血浆粘度',adotemp22.fieldbyname('血浆粘度').AsString,'','']);
-    ReceiveItemInfo[2+i]:=VarArrayof(['压积',adotemp22.fieldbyname('压积').AsString,'','']);
-    ReceiveItemInfo[3+i]:=VarArrayof(['血沉',adotemp22.fieldbyname('血沉').AsString,'','']);
-    ReceiveItemInfo[4+i]:=VarArrayof(['血沉最大沉降率',adotemp22.fieldbyname('血沉最大沉降率').AsString,'','']);
-    ReceiveItemInfo[5+i]:=VarArrayof(['血沉最大沉降率时间',adotemp22.fieldbyname('血沉最大沉降率时间').AsString,'','']);
-    ReceiveItemInfo[6+i]:=VarArrayof(['全血低切相对指数',adotemp22.fieldbyname('全血低切相对指数').AsString,'','']);
-    ReceiveItemInfo[7+i]:=VarArrayof(['全血高切相对指数',adotemp22.fieldbyname('全血高切相对指数').AsString,'','']);
-    ReceiveItemInfo[8+i]:=VarArrayof(['血沉方程K值',adotemp22.fieldbyname('血沉方程K值').AsString,'','']);
-    ReceiveItemInfo[9+i]:=VarArrayof(['红细胞聚集指数',adotemp22.fieldbyname('红细胞聚集指数').AsString,'','']);
-    ReceiveItemInfo[10+i]:=VarArrayof(['红细胞聚集系数',adotemp22.fieldbyname('红细胞聚集系数').AsString,'','']);
-    ReceiveItemInfo[11+i]:=VarArrayof(['红细胞变形指数',adotemp22.fieldbyname('红细胞变形指数').AsString,'','']);
-    ReceiveItemInfo[12+i]:=VarArrayof(['全血低切还原粘度',adotemp22.fieldbyname('全血低切还原粘度').AsString,'','']);
-    ReceiveItemInfo[13+i]:=VarArrayof(['全血高切还原粘度',adotemp22.fieldbyname('全血高切还原粘度').AsString,'','']);
-    ReceiveItemInfo[14+i]:=VarArrayof(['红细胞变形指数TK',adotemp22.fieldbyname('红细胞变形指数TK').AsString,'','']);
-    ReceiveItemInfo[15+i]:=VarArrayof(['红细胞刚性指数',adotemp22.fieldbyname('红细胞刚性指数').AsString,'','']);
-    ReceiveItemInfo[16+i]:=VarArrayof(['卡松粘度',adotemp22.fieldbyname('卡松粘度').AsString,'','']);
-    ReceiveItemInfo[17+i]:=VarArrayof(['血红蛋白',adotemp22.fieldbyname('血红蛋白').AsString,'','']);
-    ReceiveItemInfo[18+i]:=VarArrayof(['红细胞内粘度',adotemp22.fieldbyname('红细胞内粘度').AsString,'','']);
-    ReceiveItemInfo[19+i]:=VarArrayof(['低切流阻',adotemp22.fieldbyname('低切流阻').AsString,'','']);
-    ReceiveItemInfo[20+i]:=VarArrayof(['中切流阻',adotemp22.fieldbyname('中切流阻').AsString,'','']);
-    ReceiveItemInfo[21+i]:=VarArrayof(['高切流阻',adotemp22.fieldbyname('高切流阻').AsString,'','']);
-    ReceiveItemInfo[22+i]:=VarArrayof(['纤维蛋白原',adotemp22.fieldbyname('纤维蛋白原').AsString,'','']);
-    ReceiveItemInfo[23+i]:=VarArrayof(['血胆固醇',adotemp22.fieldbyname('血胆固醇').AsString,'','']);
-    ReceiveItemInfo[24+i]:=VarArrayof(['甘油三脂',adotemp22.fieldbyname('甘油三脂').AsString,'','']);
-    ReceiveItemInfo[25+i]:=VarArrayof(['高密脂蛋白',adotemp22.fieldbyname('高密脂蛋白').AsString,'','']);
-    ReceiveItemInfo[26+i]:=VarArrayof(['血糖',adotemp22.fieldbyname('血糖').AsString,'','']);
-    ReceiveItemInfo[27+i]:=VarArrayof(['血小板粘附率',adotemp22.fieldbyname('血小板粘附率').AsString,'','']);
-    ReceiveItemInfo[28+i]:=VarArrayof(['体外血栓干重',adotemp22.fieldbyname('体外血栓干重').AsString,'','']);
-    ReceiveItemInfo[29+i]:=VarArrayof(['红细胞电泳',adotemp22.fieldbyname('红细胞电泳').AsString,'','']);
-    ReceiveItemInfo[30+i]:=VarArrayof(['血小板聚集率',adotemp22.fieldbyname('血小板聚集率').AsString,'','']);
-    ReceiveItemInfo[31+i]:=VarArrayof(['体外血栓长度',adotemp22.fieldbyname('体外血栓长度').AsString,'','']);
-    ReceiveItemInfo[32+i]:=VarArrayof(['结果分析',adotemp22.fieldbyname('结果分析').AsString,'','']);
-    ReceiveItemInfo[33+i]:=VarArrayof(['全血中切还原粘度',adotemp22.fieldbyname('全血中切还原粘度').AsString,'','']);
-    ReceiveItemInfo[34+i]:=VarArrayof(['屈服应力',adotemp22.fieldbyname('屈服应力').AsString,'','']);
-    ReceiveItemInfo[35+i]:=VarArrayof(['红细胞电泳指数',adotemp22.fieldbyname('红细胞电泳指数').AsString,'','']);
-    ReceiveItemInfo[36+i]:=VarArrayof(['全血中切相对指数',adotemp22.fieldbyname('全血中切相对指数').AsString,'','']);
-    ReceiveItemInfo[37+i]:=VarArrayof(['红细胞计数',adotemp22.fieldbyname('红细胞计数').AsString,'','']);
+    ReceiveItemInfo[0]:=VarArrayof(['WBC',adotemp22.fieldbyname('WBC').AsString,'','']);
+    ReceiveItemInfo[1]:=VarArrayof(['NIT',adotemp22.fieldbyname('NIT').AsString,'','']);
+    ReceiveItemInfo[2]:=VarArrayof(['URO',adotemp22.fieldbyname('URO').AsString,'','']);
+    ReceiveItemInfo[3]:=VarArrayof(['PRO',adotemp22.fieldbyname('PRO').AsString,'','']);
+    ReceiveItemInfo[4]:=VarArrayof(['pH',adotemp22.fieldbyname('pH').AsString,'','']);
+    ReceiveItemInfo[5]:=VarArrayof(['BLD',adotemp22.fieldbyname('BLD').AsString,'','']);
+    ReceiveItemInfo[6]:=VarArrayof(['SG',adotemp22.fieldbyname('SG').AsString,'','']);
+    ReceiveItemInfo[7]:=VarArrayof(['BIL',adotemp22.fieldbyname('BIL').AsString,'','']);
+    ReceiveItemInfo[8]:=VarArrayof(['Vc',adotemp22.fieldbyname('Vc').AsString,'','']);
+    ReceiveItemInfo[9]:=VarArrayof(['KET',adotemp22.fieldbyname('KET').AsString,'','']);
+    ReceiveItemInfo[10]:=VarArrayof(['GLU',adotemp22.fieldbyname('GLU').AsString,'','']);
+    ReceiveItemInfo[11]:=VarArrayof(['Color',adotemp22.fieldbyname('Color').AsString,'','']);
+    ReceiveItemInfo[12]:=VarArrayof(['Turbidity',adotemp22.fieldbyname('Turbidity').AsString,'','']);
+    ReceiveItemInfo[13]:=VarArrayof(['MCa',adotemp22.fieldbyname('MCa').AsString,'','']);
+    ReceiveItemInfo[14]:=VarArrayof(['Ca',adotemp22.fieldbyname('Ca').AsString,'','']);
+    ReceiveItemInfo[15]:=VarArrayof(['CRE',adotemp22.fieldbyname('CRE').AsString,'','']);
+    ReceiveItemInfo[16]:=VarArrayof(['redCell',adotemp22.fieldbyname('redCell').AsString,'','']);
+    ReceiveItemInfo[17]:=VarArrayof(['whiteCell',adotemp22.fieldbyname('whiteCell').AsString,'','']);
+    ReceiveItemInfo[18]:=VarArrayof(['whiteCellgroup',adotemp22.fieldbyname('whiteCellgroup').AsString,'','']);
+    ReceiveItemInfo[19]:=VarArrayof(['squa',adotemp22.fieldbyname('squa').AsString,'','']);
+    ReceiveItemInfo[20]:=VarArrayof(['nonSqua',adotemp22.fieldbyname('nonSqua').AsString,'','']);
+    ReceiveItemInfo[21]:=VarArrayof(['otherSqua',adotemp22.fieldbyname('otherSqua').AsString,'','']);
+    ReceiveItemInfo[22]:=VarArrayof(['cylinder',adotemp22.fieldbyname('cylinder').AsString,'','']);
+    ReceiveItemInfo[23]:=VarArrayof(['hyalineCast',adotemp22.fieldbyname('hyalineCast').AsString,'','']);
+    ReceiveItemInfo[24]:=VarArrayof(['granularCast',adotemp22.fieldbyname('granularCast').AsString,'','']);
+    ReceiveItemInfo[25]:=VarArrayof(['crystal',adotemp22.fieldbyname('crystal').AsString,'','']);
+    ReceiveItemInfo[26]:=VarArrayof(['urateCrystal',adotemp22.fieldbyname('urateCrystal').AsString,'','']);
+    ReceiveItemInfo[27]:=VarArrayof(['otherCrystal',adotemp22.fieldbyname('otherCrystal').AsString,'','']);
+    ReceiveItemInfo[28]:=VarArrayof(['speram',adotemp22.fieldbyname('speram').AsString,'','']);
+    ReceiveItemInfo[29]:=VarArrayof(['baterium',adotemp22.fieldbyname('baterium').AsString,'','']);
+    ReceiveItemInfo[30]:=VarArrayof(['yeast',adotemp22.fieldbyname('yeast').AsString,'','']);
+    ReceiveItemInfo[31]:=VarArrayof(['mucus',adotemp22.fieldbyname('mucus').AsString,'','']);
+    ReceiveItemInfo[32]:=VarArrayof(['fatBall',adotemp22.fieldbyname('fatBall').AsString,'','']);
+    ReceiveItemInfo[33]:=VarArrayof(['trichmo',adotemp22.fieldbyname('trichmo').AsString,'','']);
+    ReceiveItemInfo[34]:=VarArrayof(['resultchange',adotemp22.fieldbyname('resultchange').AsString,'','']);
+    ReceiveItemInfo[35]:=VarArrayof(['unredcell',adotemp22.fieldbyname('unredcell').AsString,'','']);
+
+    ReceiveItemInfo[36]:=VarArrayof(['100X-01','','',picturepath+'\100X\100X-01.jpg']);
+    ReceiveItemInfo[37]:=VarArrayof(['100X-02','','',picturepath+'\100X\100X-02.jpg']);
+    ReceiveItemInfo[38]:=VarArrayof(['100X-03','','',picturepath+'\100X\100X-03.jpg']);
+    ReceiveItemInfo[39]:=VarArrayof(['100X-04','','',picturepath+'\100X\100X-04.jpg']);
+    ReceiveItemInfo[40]:=VarArrayof(['100X-05','','',picturepath+'\100X\100X-05.jpg']);
+    ReceiveItemInfo[41]:=VarArrayof(['100X-06','','',picturepath+'\100X\100X-06.jpg']);
+    ReceiveItemInfo[42]:=VarArrayof(['100X-07','','',picturepath+'\100X\100X-07.jpg']);
+    ReceiveItemInfo[43]:=VarArrayof(['100X-08','','',picturepath+'\100X\100X-08.jpg']);
+    ReceiveItemInfo[44]:=VarArrayof(['100X-09','','',picturepath+'\100X\100X-09.jpg']);
+    ReceiveItemInfo[45]:=VarArrayof(['400X-01','','',picturepath+'\400X\400X-01.jpg']);
+    ReceiveItemInfo[46]:=VarArrayof(['400X-02','','',picturepath+'\400X\400X-02.jpg']);
+    ReceiveItemInfo[47]:=VarArrayof(['400X-03','','',picturepath+'\400X\400X-03.jpg']);
+    ReceiveItemInfo[48]:=VarArrayof(['400X-04','','',picturepath+'\400X\400X-04.jpg']);
+    ReceiveItemInfo[49]:=VarArrayof(['400X-05','','',picturepath+'\400X\400X-05.jpg']);
+    ReceiveItemInfo[50]:=VarArrayof(['400X-06','','',picturepath+'\400X\400X-06.jpg']);
+    ReceiveItemInfo[51]:=VarArrayof(['400X-07','','',picturepath+'\400X\400X-07.jpg']);
+    ReceiveItemInfo[52]:=VarArrayof(['400X-08','','',picturepath+'\400X\400X-08.jpg']);
+    ReceiveItemInfo[53]:=VarArrayof(['400X-09','','',picturepath+'\400X\400X-09.jpg']);
+    ReceiveItemInfo[54]:=VarArrayof(['RedCellPhase','','',picturepath+'\RedCellPhase.jpg']);
 
     if bRegister then
     begin
       FInts :=CreateOleObject('Data2LisSvr.Data2Lis');
-      FInts.fData2Lis(ReceiveItemInfo,rightstr('0000'+SamNo,4),
-        FormatDateTime('YYYY-MM-DD',DateTimePicker1.Date)+' '+FormatDateTime('hh:nn:ss',adotemp22.fieldbyname('时间').AsDateTime),
+      FInts.fData2Lis(ReceiveItemInfo,rightstr('0000'+orderid,4),
+        FormatDateTime('YYYY-MM-DD',DateTimePicker1.Date)+' '+copy(acqutime,1,2)+':'+copy(acqutime,3,2)+':'+copy(acqutime,5,2),
         (GroupName),(SpecType),(SpecStatus),(EquipChar),
-        (CombinID),
-        sName+'{!@#}'+sSex+'{!@#}{!@#}'+sAge+'{!@#}'+sBLH+'{!@#}'+sKB+'{!@#}'+sSJYS+'{!@#}'+sBedNo+'{!@#}'+sLCZD+'{!@#}{!@#}'+sJYYS,
+        (CombinID),'',
         (LisFormCaption),(ConnectString),
         (QuaContSpecNoG),(QuaContSpecNo),(QuaContSpecNoD),'',
-        true,true,'常规');
+        ifRecLog,true,'常规');
       if not VarIsEmpty(FInts) then FInts:= unAssigned;
     end;
 
     adotemp22.Next;
   end;
+
+  {adotemp22.First;
+  while not adotemp22.Eof do
+  begin
+    orderid:=adotemp22.fieldbyname('orderid').AsString;
+    sampleid:=adotemp22.fieldbyname('sampleid').AsString;
+    patientid:=adotemp22.fieldbyname('patientid').AsString;
+    acqutime:=adotemp22.fieldbyname('acqutime').AsString;
+    picturepath:=adotemp22.fieldbyname('picturepath').AsString;
+
+    qqq:=false;
+    findfile(qqq,picturepath,'*.jpg',AFindCallBack,true,true);
+
+    adotemp22.Next;
+  end;//}
+  
   adotemp22.Free;
   
   (sender as TBitBtn).Enabled:=true;

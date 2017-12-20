@@ -3,8 +3,7 @@ program ProMejerA3;
 uses
   Forms,
   UfrmMain in 'UfrmMain.pas' {frmMain},
-  UCommFunction in 'UCommFunction.pas',
-  USearchFile in 'USearchFile.pas';
+  UCommFunction in 'UCommFunction.pas';
 
 {$R *.res}
 
