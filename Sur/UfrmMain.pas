@@ -331,40 +331,12 @@ begin
     if ifRegister then bRegister:=true else bRegister:=false;
 end;
 
-{procedure AFindCallBack(const filename:string;const info:tsearchrec;var quit:boolean);
-var
-  FInts:OleVariant;
-  ReceiveItemInfo:OleVariant;
-
-  sName:string;//文件名
-begin
-  sName:=ChangeFileExt(ExtractFileName(filename),'');
-  
-  ReceiveItemInfo:=VarArrayCreate([0,1-1],varVariant);
-
-  ReceiveItemInfo[0]:=VarArrayof([sName,'','',filename]);
-
-  if bRegister then
-  begin
-    FInts :=CreateOleObject('Data2LisSvr.Data2Lis');
-    FInts.fData2Lis(ReceiveItemInfo,rightstr('0000'+orderid,4),
-        FormatDateTime('YYYY-MM-DD',frmMain.DateTimePicker1.Date)+' '+copy(acqutime,1,2)+':'+copy(acqutime,3,2)+':'+copy(acqutime,5,2),
-      (GroupName),(SpecType),(SpecStatus),(EquipChar),
-      (CombinID),'',(LisFormCaption),(ConnectString),
-      (QuaContSpecNoG),(QuaContSpecNo),(QuaContSpecNoD),'',
-      ifRecLog,true,'常规');
-    if not VarIsEmpty(FInts) then FInts:= unAssigned;
-  end;
-end;//}
-
 procedure TfrmMain.BitBtn3Click(Sender: TObject);
 VAR
   FInts:OleVariant;
   
   adotemp22:tadoquery;
   ReceiveItemInfo:OleVariant;
-  
-  //qqq:boolean;
 begin
   if not ifConnSucc then
   begin
@@ -395,17 +367,17 @@ begin
   
     ReceiveItemInfo:=VarArrayCreate([0,36+19-1],varVariant);//19个图片项目
 
-    ReceiveItemInfo[0]:=VarArrayof(['WBC',adotemp22.fieldbyname('WBC').AsString,'','']);
-    ReceiveItemInfo[1]:=VarArrayof(['NIT',adotemp22.fieldbyname('NIT').AsString,'','']);
-    ReceiveItemInfo[2]:=VarArrayof(['URO',adotemp22.fieldbyname('URO').AsString,'','']);
-    ReceiveItemInfo[3]:=VarArrayof(['PRO',adotemp22.fieldbyname('PRO').AsString,'','']);
-    ReceiveItemInfo[4]:=VarArrayof(['pH',adotemp22.fieldbyname('pH').AsString,'','']);
-    ReceiveItemInfo[5]:=VarArrayof(['BLD',adotemp22.fieldbyname('BLD').AsString,'','']);
-    ReceiveItemInfo[6]:=VarArrayof(['SG',adotemp22.fieldbyname('SG').AsString,'','']);
-    ReceiveItemInfo[7]:=VarArrayof(['BIL',adotemp22.fieldbyname('BIL').AsString,'','']);
-    ReceiveItemInfo[8]:=VarArrayof(['Vc',adotemp22.fieldbyname('Vc').AsString,'','']);
-    ReceiveItemInfo[9]:=VarArrayof(['KET',adotemp22.fieldbyname('KET').AsString,'','']);
-    ReceiveItemInfo[10]:=VarArrayof(['GLU',adotemp22.fieldbyname('GLU').AsString,'','']);
+    ReceiveItemInfo[0]:=VarArrayof(['WBC',StringReplace(copy(adotemp22.fieldbyname('WBC').AsString,5,MaxInt),'Cells/uL','',[rfReplaceAll, rfIgnoreCase]),'','']);
+    ReceiveItemInfo[1]:=VarArrayof(['NIT',copy(adotemp22.fieldbyname('NIT').AsString,5,MaxInt),'','']);
+    ReceiveItemInfo[2]:=VarArrayof(['URO',StringReplace(copy(adotemp22.fieldbyname('URO').AsString,5,MaxInt),'umol/L','',[rfReplaceAll, rfIgnoreCase]),'','']);
+    ReceiveItemInfo[3]:=VarArrayof(['PRO',StringReplace(copy(adotemp22.fieldbyname('PRO').AsString,5,MaxInt),'g/L','',[rfReplaceAll, rfIgnoreCase]),'','']);
+    ReceiveItemInfo[4]:=VarArrayof(['pH',copy(adotemp22.fieldbyname('pH').AsString,5,MaxInt),'','']);
+    ReceiveItemInfo[5]:=VarArrayof(['BLD',StringReplace(copy(adotemp22.fieldbyname('BLD').AsString,5,MaxInt),'Cells/uL','',[rfReplaceAll, rfIgnoreCase]),'','']);
+    ReceiveItemInfo[6]:=VarArrayof(['SG',copy(adotemp22.fieldbyname('SG').AsString,5,MaxInt),'','']);
+    ReceiveItemInfo[7]:=VarArrayof(['BIL',StringReplace(copy(adotemp22.fieldbyname('BIL').AsString,5,MaxInt),'umol/L','',[rfReplaceAll, rfIgnoreCase]),'','']);
+    ReceiveItemInfo[8]:=VarArrayof(['Vc',StringReplace(copy(adotemp22.fieldbyname('Vc').AsString,5,MaxInt),'mmol/L','',[rfReplaceAll, rfIgnoreCase]),'','']);
+    ReceiveItemInfo[9]:=VarArrayof(['KET',StringReplace(copy(adotemp22.fieldbyname('KET').AsString,5,MaxInt),'mmol/L','',[rfReplaceAll, rfIgnoreCase]),'','']);
+    ReceiveItemInfo[10]:=VarArrayof(['GLU',StringReplace(copy(adotemp22.fieldbyname('GLU').AsString,5,MaxInt),'mmol/L','',[rfReplaceAll, rfIgnoreCase]),'','']);
     ReceiveItemInfo[11]:=VarArrayof(['Color',adotemp22.fieldbyname('Color').AsString,'','']);
     ReceiveItemInfo[12]:=VarArrayof(['Turbidity',adotemp22.fieldbyname('Turbidity').AsString,'','']);
     ReceiveItemInfo[13]:=VarArrayof(['MCa',adotemp22.fieldbyname('MCa').AsString,'','']);
@@ -468,21 +440,6 @@ begin
     adotemp22.Next;
   end;
 
-  {adotemp22.First;
-  while not adotemp22.Eof do
-  begin
-    orderid:=adotemp22.fieldbyname('orderid').AsString;
-    sampleid:=adotemp22.fieldbyname('sampleid').AsString;
-    patientid:=adotemp22.fieldbyname('patientid').AsString;
-    acqutime:=adotemp22.fieldbyname('acqutime').AsString;
-    picturepath:=adotemp22.fieldbyname('picturepath').AsString;
-
-    qqq:=false;
-    findfile(qqq,picturepath,'*.jpg',AFindCallBack,true,true);
-
-    adotemp22.Next;
-  end;//}
-  
   adotemp22.Free;
   
   (sender as TBitBtn).Enabled:=true;
